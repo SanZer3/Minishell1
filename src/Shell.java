@@ -1,8 +1,8 @@
-import java.io.*; 
-import java.util.ArrayList; 
-import java.util.List; 
-public class Shell {
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
+public class Shell {
     private List<String> commandHistory; // Liste pour stocker l'historique des commandes
     private BufferedReader reader; // BufferedReader pour lire les entrées utilisateur
 
@@ -66,86 +66,13 @@ public class Shell {
         tokens.remove(0); // Supprimer le premier token
         String[] args = tokens.toArray(new String[0]); // Convertir les tokens restants en tableau
 
-        // Vérifier l'opérateur de redirection >>
+        // Vérifier les opérateurs de redirection
         if (commandLine.contains(">>")) {
-            String[] parts = commandLine.split(">>"); // Diviser la commande par >>
-            String commandToExecute = parts[0].trim(); // Obtenir la commande
-            String filename = parts[1].trim(); // Obtenir le nom du fichier
-
-            File file = new File(filename); // Créer un objet File pour le fichier
-            if (!file.isAbsolute()) { // Si le chemin n'est pas absolu
-                String currentDirectory = System.getProperty("user.dir"); // Obtenir le répertoire de travail actuel
-                file = new File(currentDirectory, filename); // Créer le fichier dans le répertoire actuel
-            }
-
-            try {
-                ProcessBuilder processBuilder = new ProcessBuilder(commandToExecute.trim().split("\\s+")); // Diviser correctement la commande
-                processBuilder.directory(new File(System.getProperty("user.dir"))); // S'assurer que le répertoire de travail est correct
-                processBuilder.redirectOutput(ProcessBuilder.Redirect.appendTo(file)); // Rediriger la sortie pour ajouter au fichier
-                Process process = processBuilder.start(); // Démarrer le processus
-                process.waitFor(); // Attendre la fin du processus
-            } catch (IOException | InterruptedException e) {
-                System.err.println("Error executing command: " + e.getMessage()); // Gérer les erreurs
-            }
-        } else if (commandLine.contains(">")) { // Vérifier l'opérateur de redirection >
-            String[] parts = commandLine.split(">"); // Diviser la commande par >
-            String commandToExecute = parts[0].trim(); // Obtenir la commande
-            String filename = parts[1].trim(); // Obtenir le nom du fichier
-
-            File file = new File(filename); // Créer un objet File pour le fichier
-            if (!file.isAbsolute()) { // Si le chemin n'est pas absolu
-                String currentDirectory = System.getProperty("user.dir"); // Obtenir le répertoire de travail actuel
-                file = new File(currentDirectory, filename); // Créer le fichier dans le répertoire actuel
-            }
-
-            try {
-                ProcessBuilder processBuilder = new ProcessBuilder(commandToExecute.trim().split("\\s+")); // Diviser correctement la commande
-                processBuilder.directory(new File(System.getProperty("user.dir"))); // S'assurer que le répertoire de travail est correct
-                processBuilder.redirectOutput(file); // Rediriger la sortie pour écraser le fichier
-                Process process = processBuilder.start(); // Démarrer le processus
-                process.waitFor(); // Attendre la fin du processus
-            } catch (IOException | InterruptedException e) {
-                System.err.println("Error executing command: " + e.getMessage()); // Gérer les erreurs
-            }
-        } else if (commandLine.contains("<")) { // Vérifier l'opérateur de redirection <
-            String[] parts = commandLine.split("<"); // Diviser la commande par <
-            String commandToExecute = parts[0].trim(); // Obtenir la commande
-            String filename = parts[1].trim(); // Obtenir le nom du fichier
-
-            File file = new File(filename); // Créer un objet File pour le fichier
-            if (!file.isAbsolute()) { // Si le chemin n'est pas absolu
-                String currentDirectory = System.getProperty("user.dir"); // Obtenir le répertoire de travail actuel
-                file = new File(currentDirectory, filename); // Créer le fichier dans le répertoire actuel
-            }
-
-            try {
-                StringBuilder fileContent = new StringBuilder(); // StringBuilder pour le contenu du fichier
-                BufferedReader fileReader = new BufferedReader(new FileReader(file)); // Lire le fichier
-                String line;
-                while ((line = fileReader.readLine()) != null) {
-                    fileContent.append(line).append(System.lineSeparator()); // Ajouter chaque ligne au contenu
-                }
-                fileReader.close(); // Fermer le lecteur de fichier
-
-                ProcessBuilder processBuilder = new ProcessBuilder(commandToExecute.trim().split("\\s+")); // Diviser correctement la commande
-                Process process = processBuilder.start(); // Démarrer le processus
-
-                OutputStream processInput = process.getOutputStream(); // Obtenir l'entrée standard du processus
-                processInput.write(fileContent.toString().getBytes()); // Écrire le contenu du fichier dans l'entrée
-                processInput.flush(); // Vider le flux
-                processInput.close(); // Fermer le flux
-
-                InputStream processOutput = process.getInputStream(); // Obtenir la sortie standard du processus
-                BufferedReader processOutputReader = new BufferedReader(new InputStreamReader(processOutput)); // Lire la sortie
-                String processLine;
-                while ((processLine = processOutputReader.readLine()) != null) {
-                    System.out.println(processLine); // Afficher chaque ligne de la sortie
-                }
-
-                int exitCode = process.waitFor(); // Attendre la fin du processus
-            } catch (IOException | InterruptedException e) {
-                System.err.println("Error executing command: " + e.getMessage()); // Gérer les erreurs
-            }
+            executeAppendRedirect(commandLine);
+        } else if (commandLine.contains(">")) {
+            executeOutputRedirect(commandLine);
+        } else if (commandLine.contains("<")) {
+            executeInputRedirect(commandLine);
         } else { // Si aucune redirection
             switch (command) { // Vérifier la commande
                 case "cd":
@@ -171,28 +98,46 @@ public class Shell {
                     EchoCatNano.nano(args[0]); // Appeler la méthode nano
                     break;
                 case "mkdir":
-                    if (args.length > 1) { // Si plusieurs arguments
-                        for (String dir : args) {
-                            MkdirTouch.mkdir(new String[]{dir}); // Appeler mkdir pour chaque argument
-                        }
-                    } else {
-                        MkdirTouch.mkdir(args); // Appeler mkdir
-                    }
+                    MkdirTouch.mkdir(args); // Appeler mkdir
                     break;
                 case "touch":
-                    if (args.length > 1) { // Si plusieurs arguments
-                        for (String file : args) {
-                            MkdirTouch.touch(new String[]{file}); // Appeler touch pour chaque argument
-                        }
-                    } else {
-                        MkdirTouch.touch(args); // Appeler touch
-                    }
+                    MkdirTouch.touch(args); // Appeler touch
+                    break;
+                case "ps":
+                    System.out.println(ps()); // Appeler la méthode ps
                     break;
                 default:
                     System.out.println("Command not found"); // Si la commande n'est pas trouvée
                     break;
             }
         }
+    }
+
+    // Méthode pour exécuter la commande ps
+    public static String ps() {
+        StringBuilder result = new StringBuilder(); // Crée un StringBuilder pour stocker la sortie de la commande
+        ProcessBuilder processBuilder = new ProcessBuilder(); // Crée un ProcessBuilder pour exécuter des commandes système
+        processBuilder.command("bash", "-c", "ps"); // Définit la commande à exécuter (ici, la commande ps via bash)
+
+        try {
+            Process process = processBuilder.start(); // Démarre le processus
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream())); // Crée un BufferedReader pour lire la sortie du processus
+
+            String line;
+            while ((line = reader.readLine()) != null) { // Lit chaque ligne de la sortie du processus
+                result.append(line).append("\n"); // Ajoute chaque ligne à la chaîne résultante
+            }
+
+            int exitCode = process.waitFor(); // Attend la fin du processus et récupère le code de sortie
+            if (exitCode != 0) { // Vérifie si le code de sortie indique une erreur
+                throw new RuntimeException("Erreur dans l'exécution de la commande ps. Code de sortie: " + exitCode); // Lève une exception en cas d'erreur
+            }
+
+        } catch (IOException | InterruptedException e) { // Gère les exceptions IOException et InterruptedException
+            e.printStackTrace(); // Imprime la trace de l'exception pour le débogage
+        }
+
+        return result.toString(); // Retourne la chaîne résultante contenant la sortie de la commande ps
     }
 
     // Méthode pour exécuter un script
@@ -274,10 +219,97 @@ public class Shell {
         }
     }
 
+    // Méthode pour exécuter une redirection de sortie vers un fichier
+    private void executeOutputRedirect(String commandLine) {
+        String[] parts = commandLine.split(">"); // Diviser la commande par >
+        String commandToExecute = parts[0].trim(); // Obtenir la commande
+        String filename = parts[1].trim(); // Obtenir le nom du fichier
+
+        File file = new File(filename); // Créer un objet File pour le fichier
+        if (!file.isAbsolute()) { // Si le chemin n'est pas absolu
+            String currentDirectory = System.getProperty("user.dir"); // Obtenir le répertoire de travail actuel
+            file = new File(currentDirectory, filename); // Créer le fichier dans le répertoire actuel
+        }
+
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(commandToExecute.trim().split("\\s+")); // Diviser correctement la commande
+            processBuilder.directory(new File(System.getProperty("user.dir"))); // S'assurer que le répertoire de travail est correct
+            processBuilder.redirectOutput(file); // Rediriger la sortie pour écraser le fichier
+            Process process = processBuilder.start(); // Démarrer le processus
+            process.waitFor(); // Attendre la fin du processus
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error executing command: " + e.getMessage()); // Gérer les erreurs
+        }
+    }
+
+    // Méthode pour exécuter une redirection de sortie en ajoutant au fichier
+    private void executeAppendRedirect(String commandLine) {
+        String[] parts = commandLine.split(">>"); // Diviser la commande par >>
+        String commandToExecute = parts[0].trim(); // Obtenir la commande
+        String filename = parts[1].trim(); // Obtenir le nom du fichier
+
+        File file = new File(filename); // Créer un objet File pour le fichier
+        if (!file.isAbsolute()) { // Si le chemin n'est pas absolu
+            String currentDirectory = System.getProperty("user.dir"); // Obtenir le répertoire de travail actuel
+            file = new File(currentDirectory, filename); // Créer le fichier dans le répertoire actuel
+        }
+
+        try {
+            ProcessBuilder processBuilder = new ProcessBuilder(commandToExecute.trim().split("\\s+")); // Diviser correctement la commande
+            processBuilder.directory(new File(System.getProperty("user.dir"))); // S'assurer que le répertoire de travail est correct
+            processBuilder.redirectOutput(ProcessBuilder.Redirect.appendTo(file)); // Rediriger la sortie pour ajouter au fichier
+            Process process = processBuilder.start(); // Démarrer le processus
+            process.waitFor(); // Attendre la fin du processus
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error executing command: " + e.getMessage()); // Gérer les erreurs
+        }
+    }
+
+    // Méthode pour exécuter une redirection d'entrée depuis un fichier
+    private void executeInputRedirect(String commandLine) {
+        String[] parts = commandLine.split("<"); // Diviser la commande par <
+        String commandToExecute = parts[0].trim(); // Obtenir la commande
+        String filename = parts[1].trim(); // Obtenir le nom du fichier
+
+        File file = new File(filename); // Créer un objet File pour le fichier
+        if (!file.isAbsolute()) { // Si le chemin n'est pas absolu
+            String currentDirectory = System.getProperty("user.dir"); // Obtenir le répertoire de travail actuel
+            file = new File(currentDirectory, filename); // Créer le fichier dans le répertoire actuel
+        }
+
+        try {
+            StringBuilder fileContent = new StringBuilder(); // StringBuilder pour le contenu du fichier
+            BufferedReader fileReader = new BufferedReader(new FileReader(file)); // Lire le fichier
+            String line;
+            while ((line = fileReader.readLine()) != null) {
+                fileContent.append(line).append(System.lineSeparator()); // Ajouter chaque ligne au contenu
+            }
+            fileReader.close(); // Fermer le lecteur de fichier
+
+            ProcessBuilder processBuilder = new ProcessBuilder(commandToExecute.trim().split("\\s+")); // Diviser correctement la commande
+            Process process = processBuilder.start(); // Démarrer le processus
+
+            OutputStream processInput = process.getOutputStream(); // Obtenir l'entrée standard du processus
+            processInput.write(fileContent.toString().getBytes()); // Écrire le contenu du fichier dans l'entrée
+            processInput.flush(); // Vider le flux
+            processInput.close(); // Fermer le flux
+
+            InputStream processOutput = process.getInputStream(); // Obtenir la sortie standard du processus
+            BufferedReader processOutputReader = new BufferedReader(new InputStreamReader(processOutput)); // Lire la sortie
+            String processLine;
+            while ((processLine = processOutputReader.readLine()) != null) {
+                System.out.println(processLine); // Afficher chaque ligne de la sortie
+            }
+
+            int exitCode = process.waitFor(); // Attendre la fin du processus
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Error executing command: " + e.getMessage()); // Gérer les erreurs
+        }
+    }
+
     // Méthode principale pour démarrer le programme
     public static void main(String[] args) {
         Shell shell = new Shell(); // Créer une instance de Shell
         shell.start(); // Démarrer le shell
     }
 }
-
